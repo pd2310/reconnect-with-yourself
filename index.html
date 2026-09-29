@@ -196,6 +196,11 @@
     .booking-form .submit-btn{padding:8px 16px; min-height:36px;}
     .booking-form .form-note{display:none;}
   }
+
+  @media (max-height:760px){
+    .booking-form input,.booking-form textarea{margin-bottom:8px;}
+    .booking-form .field-error{margin:-6px 0 7px;}
+  }
 </style>
 </head>
 <body>
@@ -297,6 +302,10 @@
         <label for="city">City *</label>
         <input id="city" name="city" type="text" autocomplete="address-level2">
 
+        <label for="email">Email Address *</label>
+        <input id="email" name="email" type="email" autocomplete="email" inputmode="email" aria-describedby="emailError">
+        <div id="emailError" class="field-error" role="alert">Please enter a valid email address.</div>
+
         <label for="whatsapp">WhatsApp Number *</label>
         <input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" maxlength="15" aria-describedby="whatsappError">
         <div id="whatsappError" class="field-error" role="alert">Please enter a valid 10-digit Indian mobile number.</div>
@@ -318,7 +327,7 @@
 <script>
   // IMPORTANT: replace this with your deployed Google Apps Script Web App URL.
   const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKc5hawYlrxLYJVgquPTHGLqN9rDQS4QWGVlm3I-pMgRckhOFsthN1z4L31bTJxGPutw/exec";
-  const WHATSAPP_NUMBER = "66666666";
+  const WHATSAPP_NUMBER = "6266362398";
 
   function openBookingForm(event){
     if(event) event.preventDefault();
@@ -356,10 +365,22 @@
 
     // Accept a normal 10-digit Indian mobile number, or common +91 / 91 formats.
     const allowedFormat = /^\+?91[\s-]?[6-9]\d{9}$|^[6-9]\d{9}$/;
-    const valid = allowedFormat.test(raw);
+    const valid = raw !== '' && allowedFormat.test(raw);
 
     setFieldInvalid(input, !valid);
-    if(error) error.classList.toggle('show', showError && !valid);
+    if(error) error.classList.toggle('show', showError && raw !== '' && !valid);
+    return valid;
+  }
+
+  function validateEmail(input, showError = true){
+    const error = document.getElementById('emailError');
+    const raw = input.value.trim();
+
+    // Simple email validation for a normal address such as name@example.com.
+    const valid = raw !== '' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(raw);
+
+    setFieldInvalid(input, !valid);
+    if(error) error.classList.toggle('show', showError && raw !== '' && !valid);
     return valid;
   }
 
@@ -369,24 +390,35 @@
 
     const nameInput = document.getElementById('name');
     const cityInput = document.getElementById('city');
+    const emailInput = document.getElementById('email');
     const whatsappInput = document.getElementById('whatsapp');
 
     const nameValid = nameInput.value.trim() !== '';
     const cityValid = cityInput.value.trim() !== '';
+
+    const emailValue = emailInput.value.trim();
+    const emailValid = emailValue !== '' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailValue);
+
     const whatsappValue = whatsappInput.value.trim();
     const whatsappValid = whatsappValue !== '' &&
       (/^\+?91[\s-]?[6-9]\d{9}$|^[6-9]\d{9}$/).test(whatsappValue);
 
     setFieldInvalid(nameInput, !nameValid);
     setFieldInvalid(cityInput, !cityValid);
+    setFieldInvalid(emailInput, !emailValid);
     setFieldInvalid(whatsappInput, !whatsappValid);
+
+    const emailError = document.getElementById('emailError');
+    if(emailError){
+      emailError.classList.toggle('show', showErrors && emailValue !== '' && !emailValid);
+    }
 
     const whatsappError = document.getElementById('whatsappError');
     if(whatsappError){
       whatsappError.classList.toggle('show', showErrors && whatsappValue !== '' && !whatsappValid);
     }
 
-    return nameValid && cityValid && whatsappValid;
+    return nameValid && cityValid && emailValid && whatsappValid;
   }
 
   ['name','city'].forEach(function(id){
@@ -397,6 +429,27 @@
     document.getElementById(id)?.addEventListener('blur', function(){
       if(this.value.trim() !== '') setFieldInvalid(this, false);
     });
+  });
+
+  document.getElementById('email')?.addEventListener('input', function(){
+    const value = this.value.trim();
+    const error = document.getElementById('emailError');
+
+    if(value === ''){
+      setFieldInvalid(this, false);
+      if(error) error.classList.remove('show');
+      return;
+    }
+
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+    setFieldInvalid(this, !valid);
+
+    if(error && valid) error.classList.remove('show');
+  });
+
+  document.getElementById('email')?.addEventListener('blur', function(){
+    const value = this.value.trim();
+    if(value !== '') validateEmail(this, true);
   });
 
   document.getElementById('whatsapp')?.addEventListener('input', function(){
@@ -432,6 +485,7 @@
       firstInvalid?.focus();
       return;
     }
+
     const submitButton = form.querySelector('button[type="submit"]');
     const success = document.getElementById('formSuccess');
 
@@ -446,6 +500,7 @@
     const data = new URLSearchParams({
       name: form.name.value.trim(),
       city: form.city.value.trim(),
+      email: form.email.value.trim(),
       whatsapp: form.whatsapp.value.trim(),
       reason: form.reason.value.trim(),
       source: 'Reconnect With Yourself landing page'
